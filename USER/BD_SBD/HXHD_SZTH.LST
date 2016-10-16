@@ -1,0 +1,364 @@
+C51 COMPILER V9.01   HXHD_SZTH                                                             10/08/2013 15:34:44 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE HXHD_SZTH
+OBJECT MODULE PLACED IN HXHD_SZTH.OBJ
+COMPILER INVOKED BY: F:\Keil\C51\BIN\C51.EXE HXHD_SZTH.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <STC12C5A60S2.H>
+   2          #include <stdio.h>
+   3          #include <string.h>
+   4          #include <intrins.h>
+   5          #include "HXHD_SZTH.h"
+   6          
+   7          #define S2RI 0x01       //串口2接收中断请求标志位
+   8          #define S2TI 0x02       //串口2发送中断请求标志位
+   9          
+  10          #define CONVERT_HEX_CHAR(c, h, l) l = 0x0F&c;h=0x0F&(c>>4);l =(l<=9)?('0'+l):('A'+l-10);h=(h<=9)?('0'+h):(
+             -'A'+h-10)
+  11          
+  12          void Delay1ms(int);
+  13          void UartInit(void);
+  14          void Delay(int);
+  15          void OutChar0(unsigned char);
+  16          void OutChar1(unsigned char);
+  17          void TTCA (void);
+  18          void RD(void);
+  19          void PG(void);
+  20          void ESOUT(void);
+  21          void PSOUT(void);
+  22          void ICOUT(void);
+  23          
+  24          //*************************************CRC校验***********************************//
+  25          unsigned char BDCRC(char *buf, int size, char h[2])
+  26          {
+  27   1              unsigned char crc = 0;
+  28   1              unsigned int i = 0;
+  29   1              for (i = 0; i<size; ++i)
+  30   1              {
+  31   2                      crc^=buf[i];            
+  32   2              }
+  33   1              CONVERT_HEX_CHAR(crc, h[0], h[1]);                      
+  34   1              return crc;
+  35   1      }
+  36          int i,ii,iii,iiii;
+  37          xdata char SendDat0[101];
+  38          xdata char UART_Buffer_Size0;
+  39          xdata char UART_Buffer0[200];//={"$TTCA,1,136001,1,0,14,abcdefghijklmn,EA\r\n"};
+  40          xdata char SendDat1[101];
+  41          xdata char UART_Buffer_Size1;
+  42          xdata char UART_Buffer1[200];//={"$RD,28,424956,1,14,ABCDEFGHIJKLMN,EA\r\n"};
+  43          xdata char CRCtemp[99];
+  44          char C[2];
+  45          unsigned char count0,count1,k;
+  46          unsigned char TTCA_1,TTCA_2;
+  47          unsigned char PG_1;
+  48          unsigned char RD_1,RD_2;
+  49          unsigned char ES_1;
+  50          unsigned char PS_1;
+  51          unsigned char IC_1;
+  52          unsigned char CRCVALUE;
+  53          unsigned char Flag0,Flag1;
+  54          sbit power=P1^7;
+C51 COMPILER V9.01   HXHD_SZTH                                                             10/08/2013 15:34:44 PAGE 2   
+
+  55          sbit mm=P2^0;
+  56          
+  57          void main(void)
+  58          {
+  59   1      //      int timetep0=0,timetep1=0;
+  60   1              char BDINIT[15]={"$DM,03,ALL,67\r\n"};
+  61   1              i=0,ii=0,iii=0,iiii=0;
+  62   1              UART_Buffer_Size0=0,UART_Buffer_Size1=0;
+  63   1              count0=0,count1=0;
+  64   1              Flag0=0,Flag1=0;
+  65   1              power =1;
+  66   1              Delay(200);
+  67   1              power=0;
+  68   1              UartInit();
+  69   1      
+  70   1              for(i=0;i<19600;i++)
+  71   1                      {       
+  72   2                              Delay(65535);
+  73   2                              Delay(65535);
+  74   2                              Delay(65535);
+  75   2      //                      OutChar0(i+30);
+  76   2      //                      OutChar0('\r');
+  77   2      //                      OutChar0('\n');
+  78   2                      mm=i%2;
+  79   2                      }
+  80   1              for(i=0;i<15;i++)
+  81   1                      OutChar1(BDINIT[i]);
+  82   1      
+  83   1              while(1)
+  84   1              {
+  85   2      /*******************************************串口1接收中断处理*****************************************/
+  86   2      //              OutChar0('\n');
+  87   2      //              Delay(100);
+  88   2                      if(Flag0==1)
+  89   2                      {
+  90   3                              Flag0=0;
+  91   3                              k=0;
+  92   3                              switch(UART_Buffer0[1])
+  93   3                              {
+  94   4                                      case 'Q': //查询终端状态$QSTA，查询申请$QAPP
+  95   4                                              switch(UART_Buffer0[2])
+  96   4                                              {
+  97   5                                                      case 'S'://************************查询终端状态$QSTA
+  98   5                                                      break;
+  99   5                                                      case 'A'://************************查询申请$QAPP
+ 100   5                                                      break;
+ 101   5                                              }                                       
+ 102   4                                      break;
+ 103   4                                      case 'S'://********************************设置终端状态$STST
+ 104   4                                              _nop_();
+ 105   4                                      break;
+ 106   4                                      case 'I'://********************************查询报文顺序号$IQMS
+ 107   4                                      break;
+ 108   4                                      case 'P'://定位申请$PAPP；结束定位PEND
+ 109   4                                              switch(UART_Buffer0[2])
+ 110   4                                              {
+ 111   5                                                      case 'A'://************************定位申请$PAPP
+ 112   5                                                      break;
+ 113   5                                                      case 'E'://************************结束定位PEND
+ 114   5                                                      break;
+ 115   5                                              }
+ 116   4                                      break;
+C51 COMPILER V9.01   HXHD_SZTH                                                             10/08/2013 15:34:44 PAGE 3   
+
+ 117   4                                      case 'D'://********************************遇险通信申请$DCAP
+ 118   4                                      break;
+ 119   4                                      case 'T'://终端到终端通信申请$TTCA；终端到固定通信申请$TNCA；终端查询网管最新报文$TINC；授时申请$TAPP
+ 120   4                                              switch(UART_Buffer0[2])
+ 121   4                                              {
+ 122   5      //*********************************************************终端到终端通信申请$TTCA************************
+             -*********************************//
+ 123   5                                                      case 'T':
+ 124   5                                                              TTCA();
+ 125   5                                                      break;
+ 126   5      //*********************************************************终端到终端通信申请$TTCA************************
+             -*********************************//
+ 127   5                                                      case 'N'://************************终端到固定通信申请$TNCA
+ 128   5                                                      break;
+ 129   5                                                      case 'I'://************************终端查询网管最新报文$TINC
+ 130   5                                                      break;
+ 131   5                                                      case 'A'://************************授时申请$TAPP
+ 132   5                                                      break;
+ 133   5                                              }
+ 134   4                                              break;
+ 135   4                                      case 'C'://通信回执申请$CACA；通信输出成功状态$COSS
+ 136   4                                              switch(UART_Buffer0[2])
+ 137   4                                              {
+ 138   5                                                      case 'A'://************************通信回执申请$CACA
+ 139   5                                                      break;
+ 140   5                                                      case 'O'://************************通信输出成功状态$COSS
+ 141   5                                                      break;
+ 142   5                                              }
+ 143   4                                      break;
+ 144   4                                      case 'L'://********************************超长报文通信申请$LTCA
+ 145   4                                      break;
+ 146   4                                      case 'G':
+ 147   4                                              switch(UART_Buffer0[4])
+ 148   4                                              {
+ 149   5                                                      case 'A'://************************GPS定位申请$GPSA
+ 150   5                                                      break;
+ 151   5                                                      case 'E'://************************结束GPS定位$GPSE
+ 152   5                                                      break;
+ 153   5                                              }
+ 154   4                                      break;
+ 155   4                                      default:
+ 156   4                                      break;
+ 157   4                              }
+ 158   3        
+ 159   3                              Flag0=0;
+ 160   3                              count0=0;
+ 161   3                              UART_Buffer_Size0=0;
+ 162   3                      }
+ 163   2      /**********************************************串口2中断处理开始****************************************/
+ 164   2                      if(Flag1==1)
+ 165   2                      {
+ 166   3                              Flag1=0;
+ 167   3                              switch (UART_Buffer1[1])
+ 168   3                              {
+ 169   4                                      case 'E'://********************************短信回复$ES发送成功OR失败
+ 170   4                                              ESOUT();
+ 171   4                                      break;
+ 172   4                                      case 'R'://********************************接收到数据$RD
+ 173   4                                              switch(UART_Buffer1[2])
+ 174   4                                              {
+ 175   5                                                      case 'D'://************************位置速度$PG转$PINF输出
+ 176   5                                                              RD();
+C51 COMPILER V9.01   HXHD_SZTH                                                             10/08/2013 15:34:44 PAGE 4   
+
+ 177   5                                                      break;
+ 178   5                                                      default:
+ 179   5                                                      break;
+ 180   5                                              }
+ 181   4                                      break;
+ 182   4                                      case 'P'://********************************位置速度$PG，定位状态$PS
+ 183   4                                              switch(UART_Buffer1[2])
+ 184   4                                              {
+ 185   5                                                      case 'G'://************************位置速度$PG转$PINF输出
+ 186   5                                                              if (UART_Buffer1[7]=='T')
+ 187   5                                                                      break;
+ 188   5                                                              else
+ 189   5                                                                      PG();
+ 190   5                                                      break;
+ 191   5                                                      case 'S'://************************定位状态$PS
+ 192   5                                                              PSOUT();
+ 193   5                                                      break;
+ 194   5                                                      default:
+ 195   5                                                      break;
+ 196   5                                              }
+ 197   4                                      break;
+ 198   4                                      case 'S'://位置信息$PINF；定位查询结果$PINQ
+ 199   4                                              switch(UART_Buffer1[2])
+ 200   4                                              {
+ 201   5                                                      case 'I'://************************位置信息     $PINF
+ 202   5                                                      break;
+ 203   5                                                      case 'S'://************************定位查询结果$PINQ
+ 204   5                                                      break;
+ 205   5                                                      default:
+ 206   5                                                      break;
+ 207   5                                              }
+ 208   4                                      break;
+ 209   4                                      case 'I'://********************************超长报文通信输出$LTCO
+ 210   4                                              ICOUT();
+ 211   4                                      break;
+ 212   4                                      case 'N'://********************************最终固定用户接受回执确认输出$NAOP
+ 213   4                                      break;
+ 214   4                                      case 'Q'://********************************回执查询结果$QOUT
+ 215   4                                      break;
+ 216   4                                      default:
+ 217   4                                      break;
+ 218   4                              }
+ 219   3       
+ 220   3                              Flag1=0;
+ 221   3                              count1=0;
+ 222   3                              UART_Buffer_Size1=0;
+ 223   3                      }
+ 224   2      /**********************************************串口中断处理结束****************************************/
+ 225   2              }
+ 226   1      }
+ 227          
+ 228          
+ 229          /***********************串口初始化,串口1波特率9600，串口2波特率9600*********************************/
+ 230          void UartInit(void)
+ 231          {
+ 232   1              PCON &= 0x7F;           //波特率不倍速
+ 233   1              SCON = 0x50;            //8位数据,可变波特率
+ 234   1              AUXR |= 0x40;           //定时器1时钟为Fosc,即1T
+ 235   1              AUXR &= 0xFE;           //串口1选择定时器1为波特率发生器
+ 236   1              TMOD &= 0x0F;           //清除定时器1模式位
+ 237   1              TMOD |= 0x20;           //设定定时器1为8位自动重装方式
+ 238   1              TL1 = 0xDC;                     //设定定时初值
+C51 COMPILER V9.01   HXHD_SZTH                                                             10/08/2013 15:34:44 PAGE 5   
+
+ 239   1              TH1 = 0xDC;                     //设定定时器重装值
+ 240   1              ET1 = 0;                        //禁止定时器1中断
+ 241   1              TR1 = 1;                        //启动定时器1
+ 242   1              EA=1;                           //开中断
+ 243   1              ES=1;                           //端口1中断允许
+ 244   1      
+ 245   1              AUXR &= 0xF7;           //波特率不倍速
+ 246   1              S2CON = 0x50;           //8位数据,可变波特率
+ 247   1              AUXR |= 0x04;           //独立波特率发生器时钟为Fosc,即1T
+ 248   1              BRT = 0xDC;                     //设定独立波特率发生器重装值
+ 249   1              AUXR |= 0x10;           //启动独立波特率发生器
+ 250   1              IE2=0x03;                       //端口2中断允许
+ 251   1      }
+ 252          
+ 253          /********************************************串口1发送数据**********************************************/
+ 254          void OutChar0(unsigned char message) //反馈给电脑
+ 255          {
+ 256   1              SBUF=message;
+ 257   1              while(!TI);
+ 258   1              TI=0;
+ 259   1      }
+ 260          
+ 261          /************************************************串口2发送数据****************************************/
+ 262          void OutChar1(unsigned char message) //发送给报文板
+ 263          {
+ 264   1              S2BUF=message;
+ 265   1              while(!(S2CON&S2TI)); //等待发送结束
+ 266   1              S2CON&=~S2TI;
+ 267   1      }
+ 268          
+ 269          void UART0_receive(void) interrupt 4
+ 270          {
+ 271   1              unsigned char temp0;
+ 272   1              if(RI==1)
+ 273   1              {
+ 274   2                      ES=0;
+ 275   2                      do
+ 276   2                      {       
+ 277   3                              while(RI==0);
+ 278   3                              RI=0;
+ 279   3                              temp0=SBUF;
+ 280   3                              switch(temp0)
+ 281   3                              {
+ 282   4                                      case '$':
+ 283   4                                              count0++;
+ 284   4                                              UART_Buffer_Size0=0;
+ 285   4                                              UART_Buffer0[UART_Buffer_Size0]=temp0;
+ 286   4                                      break;
+ 287   4                                      default:
+ 288   4                                              count0++;
+ 289   4                                              UART_Buffer_Size0++;
+ 290   4                                              UART_Buffer0[UART_Buffer_Size0]=temp0;
+ 291   4                                      break;
+ 292   4                              }
+ 293   3                      }
+ 294   2                      while(temp0!=0x0A);
+ 295   2                      ES=1;
+ 296   2                      Flag0=1;
+ 297   2              }
+ 298   1      }
+ 299          
+ 300          void UART1_receive(void) interrupt 8
+C51 COMPILER V9.01   HXHD_SZTH                                                             10/08/2013 15:34:44 PAGE 6   
+
+ 301          {
+ 302   1              unsigned temp1;
+ 303   1              if(S2CON&S2RI)
+ 304   1              {
+ 305   2                      IE2=0x02;                       //端口2中断禁止
+ 306   2                      do
+ 307   2                      {
+ 308   3                              while ((S2CON&S2RI)==0);
+ 309   3                              S2CON&=~S2RI;
+ 310   3                              temp1=S2BUF;
+ 311   3                              UART_Buffer1[UART_Buffer_Size1]=temp1;
+ 312   3                              UART_Buffer_Size1++;
+ 313   3                              count1++;
+ 314   3                      }
+ 315   2                      while(temp1!=0x0A);
+ 316   2                      IE2=0x03;
+ 317   2                      Flag1=1;
+ 318   2              }
+ 319   1      }
+ 320          
+ 321          void Delay(int iii) //delay 1*i ms延时程序(1.5s,i=1500)
+ 322          {
+ 323   1              int j,k;
+ 324   1              for (j=0;j<iii;j++)
+ 325   1              {
+ 326   2                      for (k=0;k<125;k++);
+ 327   2              }
+ 328   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    911    ----
+   CONSTANT SIZE    =     15    ----
+   XDATA SIZE       =    727      24
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

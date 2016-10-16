@@ -1,0 +1,9 @@
+"HXHD_SZTH.obj",
+"PG.obj",
+"RD.obj",
+"TTCA.obj",
+"ES.obj",
+"PS.obj",
+"ICOUT.obj" 
+TO "BDSMS_new" 
+RAMSIZE(256) 

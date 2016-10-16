@@ -1,0 +1,89 @@
+C51 COMPILER V9.01   TTCA                                                                  10/08/2013 15:34:44 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE TTCA
+OBJECT MODULE PLACED IN TTCA.OBJ
+COMPILER INVOKED BY: F:\Keil\C51\BIN\C51.EXE TTCA.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "HXHD_SZTH.H"
+   2          void TTCA(void)
+   3          {
+   4   1              TTCA_1=6,k=0,iiii=0;
+   5   1              SendDat0[0]='$';//报头
+   6   1              SendDat0[1]='S';
+   7   1              SendDat0[2]='D';
+   8   1              SendDat0[3]=',';
+   9   1      
+  10   1              for(i=0;i<=200&&UART_Buffer0[i]!=0x0A;i++)
+  11   1              {
+  12   2                      if(UART_Buffer0[i]==',')
+  13   2                              k++;
+  14   2                      switch(k)
+  15   2                      {
+  16   3                              case 0:
+  17   3                              break;
+  18   3                              case 1://收信方ID，不处理
+  19   3                              break;
+  20   3                              case 2://收信方地址，从“,”开始，末位接传输方式
+  21   3                                      SendDat0[TTCA_1]=UART_Buffer0[i];
+  22   3                                      SendDat0[TTCA_1+1]=',';
+  23   3                                      SendDat0[TTCA_1+2]='1';
+  24   3                                      SendDat0[TTCA_1+3]=',';
+  25   3                                      TTCA_1++;
+  26   3                                      TTCA_2=TTCA_1+5;//跳到正文位置
+  27   3                              break;
+  28   3                              case 3://保密要求，正文第一字节
+  29   3                                      SendDat0[TTCA_2]=UART_Buffer0[i];
+  30   3                                      TTCA_2++;//13->18
+  31   3                              break;
+  32   3                              case 4://回执标志，正文第二个字节
+  33   3                                      SendDat0[TTCA_2]=UART_Buffer0[i];
+  34   3                                      TTCA_2++;//19->20
+  35   3                              break;
+  36   3                              case 5://电文长度，后处理
+  37   3                              break;
+  38   3                              case 6://电文内容
+  39   3                                      SendDat0[TTCA_2]=UART_Buffer0[i];
+  40   3                                      TTCA_2++;//19->20
+  41   3                              break;
+  42   3                      }
+  43   2              }
+  44   1              SendDat0[TTCA_2]=',';
+  45   1              SendDat0[4]=((TTCA_2-TTCA_1+8)/10)+0x30;//总长度十位
+  46   1              SendDat0[5]=((TTCA_2-TTCA_1+8)%10)+0x30;//总长度个位
+  47   1      
+  48   1              SendDat0[16]=((TTCA_2-TTCA_1-6)/10)+0x30;//字报长度十位
+  49   1              SendDat0[17]=((TTCA_2-TTCA_1-6)%10)+0x30;//报文长度个位
+  50   1      
+  51   1              for(iiii=1;iiii<=TTCA_2;iiii++)
+  52   1              {
+  53   2                      CRCtemp[iiii-1]=SendDat0[iiii];
+  54   2              }
+  55   1              CRCVALUE=BDCRC(CRCtemp,TTCA_2,C);
+C51 COMPILER V9.01   TTCA                                                                  10/08/2013 15:34:44 PAGE 2   
+
+  56   1              
+  57   1              SendDat0[TTCA_2+1]=C[0];        //校验值高四位
+  58   1              SendDat0[TTCA_2+2]=C[1];        //校验值低四位
+  59   1              SendDat0[TTCA_2+3]=0x0D;        //结束位
+  60   1              SendDat0[TTCA_2+4]=0x0A;  //结束位
+  61   1      
+  62   1              for(i=0;i<=TTCA_2+4;i++)
+  63   1                      OutChar1(SendDat0[i]);
+  64   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    626    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
